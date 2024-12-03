@@ -6,6 +6,7 @@ import com.gzx.gtomcat.servlet.ServletRequest;
 import com.gzx.gtomcat.servlet.ServletResponse;
 
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
@@ -27,7 +28,7 @@ public class SocketProcessor implements Runnable{
 
     private int requestLength;
 
-    private static final Pattern APP_PATTERN = Pattern.compile("^/([^/]+)");
+    private static final Pattern APP_PATTERN = Pattern.compile("^/([^/]+)/?");
 
     public SocketProcessor(Socket socket, HashMap<String, ServletContext> appMapping) {
         this.socket = socket;
@@ -62,15 +63,39 @@ public class SocketProcessor implements Runnable{
 
         ServletResponse servletResponse = new ServletResponse(socket, servletRequest);
         // 选择合适的servlet去处理这个请求
-        Matcher matcher = APP_PATTERN.matcher(servletRequest.getRequestURI());
-        String appName = matcher.group();
-        System.out.println(appName);
+//        Matcher matcher = APP_PATTERN.matcher(servletRequest.getRequestURI());
+//        if (matcher.find()) {
+//            String appName = matcher.group(1);
+//            System.out.println(appName);
+//        }
+        String uri = servletRequest.getRequestURI();
+        for (String appContext : appMapping.keySet()) {
+            if (!uri.startsWith(appContext)) {
+                continue;
+            }
+            uri = uri.substring(appContext.length());
+            uri = uri.startsWith("/") ? uri : "/" + uri;
+            ServletContext servletContext = appMapping.get(appContext);
+            for (String servletPath : servletContext.getUrlServletMapping().keySet()) {
+                if (!uri.startsWith(servletPath)) {
+                    continue;
+                }
+                HttpServlet servlet = servletContext.getMapping(servletPath);
+                uri = uri.substring(servletPath.length());
+                uri = uri.startsWith("/") ? uri : "/" + uri;
+                servletRequest.setRequestURI(uri);
+                servlet.service(servletRequest, servletResponse);
+                servletResponse.complete();
+                return;
+            }
+        }
+        new DefaultServlet().service(servletRequest, servletResponse);
+        servletResponse.complete();
 //        ServletContext servletContext = appMapping.get("/" + servletRequest.getRequestURI());
 //        if (servletContext == null) {
 //            new DefaultServlet().service(servletRequest, servletResponse);
 //        }
 //        servletContext.getMapping("/" + servletRequest.getRequestURI())
-        servletResponse.complete();
 //        socket.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: 1\r\n\r\nh".getBytes());
     }
 

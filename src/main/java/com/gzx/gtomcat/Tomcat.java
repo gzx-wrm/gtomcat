@@ -3,6 +3,7 @@ package com.gzx.gtomcat;
 
 import com.gzx.gtomcat.processor.SocketProcessor;
 import com.gzx.gtomcat.servlet.ServletContext;
+import org.omg.CORBA.PUBLIC_MEMBER;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -24,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 
 public class Tomcat {
 
+    private HttpServlet dispatcherServlet;
+
     private static HashMap<String, ServletContext> appMapping = new HashMap<>();
 
     public static void main(String[] args) throws IOException {
@@ -44,6 +47,32 @@ public class Tomcat {
         }
 
 
+    }
+
+    public Tomcat() {
+    }
+
+    public void start() throws IOException {
+        ExecutorService threadPool = new ThreadPoolExecutor(10,
+                20,
+                5,
+                TimeUnit.MINUTES,
+                new LinkedBlockingQueue<Runnable>());
+
+        ServerSocket serverSocket = new ServerSocket(8080);
+        while (true) {
+            Socket socket = serverSocket.accept();
+            threadPool.execute(new SocketProcessor(socket, appMapping));
+        }
+    }
+
+    public void addServlet(String path, HttpServlet servlet) {
+        if (!appMapping.containsKey("/")) {
+            ServletContext defaultApp = new ServletContext();
+            appMapping.put("/", defaultApp);
+        }
+        ServletContext defaultApp = appMapping.get("/");
+        defaultApp.addMapping(path, servlet);
     }
 
     public static void loadApps() {

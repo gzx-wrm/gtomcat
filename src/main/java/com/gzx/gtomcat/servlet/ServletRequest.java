@@ -39,6 +39,10 @@ public class ServletRequest extends AbstractServletRequest{
         return protocol;
     }
 
+    public void setRequestURI(String uri) {
+        this.uri = uri;
+    }
+
     public Map<String, String> getHeaders() {
         return headers;
     }
